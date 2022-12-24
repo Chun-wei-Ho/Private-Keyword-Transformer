@@ -2,7 +2,9 @@
 
 # Train KWT on Speech commands v2 with 12 labels
 
-source ./venv3/bin/activate
+set -eup pipefail
+
+# source ./venv3/bin/activate
 
 KWS_PATH=$PWD
 DATA_PATH=$KWS_PATH/data2
