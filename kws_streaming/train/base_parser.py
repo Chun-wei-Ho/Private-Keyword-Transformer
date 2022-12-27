@@ -32,6 +32,12 @@ def base_parser():
     parser
   """
   parser = argparse.ArgumentParser()
+  parser.add_argument('--dataset_class',
+    type=str,
+    default='input_data.AudioProcessor',
+    choices=['input_data.AudioProcessor', 'MLSW_data.MLSWProcessor'],
+    help='The type of dataset being used')
+  parser.add_argument('--lang', type=str, default='en')
   parser.add_argument(
       '--data_url',
       type=str,

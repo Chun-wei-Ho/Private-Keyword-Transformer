@@ -32,6 +32,7 @@ import numpy as np
 import tensorflow.compat.v1 as tf
 import tensorflow_addons as tfa
 import kws_streaming.data.input_data as input_data
+import kws_streaming.data.MLSW_data as MLSW_data
 from kws_streaming.models import models
 from kws_streaming.models import utils
 
@@ -55,7 +56,8 @@ def train(flags):
   sess = tf.Session(config=config)
   tf.keras.backend.set_session(sess)
 
-  audio_processor = input_data.AudioProcessor(flags)
+  DatasetClass = eval(flags.dataset_class)
+  audio_processor = DatasetClass(flags)
 
   time_shift_samples = int((flags.time_shift_ms * flags.sample_rate) / 1000)
 
@@ -132,7 +134,7 @@ def train(flags):
   sess.run(tf.global_variables_initializer())
 
   if flags.start_checkpoint:
-    model.load_weights(flags.start_checkpoint).expect_partial()
+    model.load_weights(flags.start_checkpoint, by_name=True, skip_mismatch=True)
     logging.info('Weights loaded from %s', flags.start_checkpoint)
 
   if teacher_flags and teacher_flags.start_checkpoint:
