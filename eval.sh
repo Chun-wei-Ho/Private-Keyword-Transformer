@@ -1,21 +1,26 @@
 #!/bin/bash
 
-set -eup pipefail
+set -euo pipefail
 
-KWS_PATH=$PWD
-DATA_PATH=$KWS_PATH/data2
-MODELS_PATH=$KWS_PATH/models_data_v2_12_labels
+LANG=en
+. parse_options.sh
+
+DATA_PATH=/home/chunwei/dataset/MLSW/$LANG
+MODELS_PATH=exp/$LANG
 CMD_TRAIN="python -m kws_streaming.train.model_train_eval"
+WANTED_WORD=`cut -d ' ' -f 1 $DATA_PATH/filtered/word_counts.txt | paste -sd,`
 
 mkdir -p exp
-cp $MODELS_PATH/kwt3 exp/pretrained -r
 
 $CMD_TRAIN \
+--wanted_words $WANTED_WORD \
 --data_url '' \
 --data_dir $DATA_PATH/ \
---train_dir exp/pretrained \
+--dataset_class 'MLSW_data.MLSWProcessor' \
+--train_dir $MODELS_PATH \
 --mel_upper_edge_hertz 7600 \
 --optimizer 'adamw' \
+--lang $LANG \
 --lr_schedule 'cosine' \
 --how_many_training_steps '1' \
 --eval_step_interval 72 \
@@ -31,6 +36,7 @@ $CMD_TRAIN \
 --resample 0.15 \
 --alsologtostderr \
 --train 0 \
+--split 0 \
 --use_spec_augment 1 \
 --time_masks_number 2 \
 --time_mask_max_size 25 \

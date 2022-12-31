@@ -7,6 +7,8 @@ set -euo pipefail
 # source ./venv3/bin/activate
 
 LANG=en
+. parse_options.sh
+
 KWS_PATH=$PWD
 # DATA_PATH=$KWS_PATH/data2
 DATA_PATH=/home/chunwei/dataset/MLSW/$LANG
@@ -34,7 +36,7 @@ $CMD_TRAIN \
 --lang $LANG \
 --data_url '' \
 --data_dir $DATA_PATH/ \
---train_dir $EXP/my_model/ \
+--train_dir $EXP \
 --mel_upper_edge_hertz 7600 \
 --optimizer 'adamw' \
 --lr_schedule 'cosine' \
@@ -43,7 +45,6 @@ $CMD_TRAIN \
 --warmup_epochs 10 \
 --l2_weight_decay 0.1 \
 --alsologtostderr \
---verbosity ERROR \
 --learning_rate '0.001' \
 --batch_size 512 \
 --label_smoothing 0.1 \
