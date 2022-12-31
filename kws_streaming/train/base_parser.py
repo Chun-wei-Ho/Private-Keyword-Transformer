@@ -63,7 +63,23 @@ def base_parser():
       '--optimizer',
       type=str,
       default='adam',
-      help='Optimizer: adam, momentum, adamw')
+      choices=['adam', 'momentum', 'adamw', 'dpsgd'],
+      help='Optimizer: adam, momentum, adamw, dpsgd')
+  parser.add_argument(
+      '--dpsgd_norm_clip',
+      type=float,
+      default=1.0,
+      help='DPSGD: l2 norm clip')
+  parser.add_argument(
+      '--dpsgd_noise_multiplier',
+      type=float,
+      default=1.1,
+      help='DPSGD: noise multiplier')
+  parser.add_argument(
+      '--dpsgd_delta',
+      type=float,
+      default=1e-5,
+      help='DPSGD: delta')
   parser.add_argument(
       '--background_volume',
       type=float,

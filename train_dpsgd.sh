@@ -7,13 +7,16 @@ set -euo pipefail
 # source ./venv3/bin/activate
 
 lang=en
+clip_norm=10
+noise_multiplier=1.46
+delta=1e-5
 . parse_options.sh
 
 KWS_PATH=$PWD
 # DATA_PATH=$KWS_PATH/data2
 DATA_PATH=/home/chunwei/dataset/MLSW/$lang
 MODELS_PATH=$KWS_PATH/models_data_v2_12_labels/kwt3
-EXP=exp/$lang
+EXP=exp/${lang}_dpsgd_${noise_multiplier}_${clip_norm}
 CMD_TRAIN="python -m kws_streaming.train.model_train_eval"
 
 WANTED_WORD=`cut -d ' ' -f 1 $DATA_PATH/filtered/word_counts.txt | paste -sd,`
@@ -30,6 +33,9 @@ MODEL_ARGS="kws_transformer
 python MLSW/convert.py $START_CHECKPOINT $EXP/init.hdf5 $MODEL_ARGS
 
 $CMD_TRAIN \
+--dpsgd_norm_clip $clip_norm \
+--dpsgd_delta $delta \
+--dpsgd_noise_multiplier $noise_multiplier \
 --wanted_words $WANTED_WORD \
 --dataset_class 'MLSW_data.MLSWProcessor' \
 --start_checkpoint $EXP/init.hdf5 \
@@ -38,7 +44,7 @@ $CMD_TRAIN \
 --data_dir $DATA_PATH/ \
 --train_dir $EXP/ \
 --mel_upper_edge_hertz 7600 \
---optimizer 'adamw' \
+--optimizer 'dpsgd' \
 --lr_schedule 'cosine' \
 --how_many_training_steps '23438' \
 --eval_step_interval 72 \

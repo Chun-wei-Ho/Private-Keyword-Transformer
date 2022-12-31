@@ -29,12 +29,16 @@ import os.path
 import pprint
 from absl import logging
 import numpy as np
+import tensorflow as tf_v2
 import tensorflow.compat.v1 as tf
 import tensorflow_addons as tfa
 import kws_streaming.data.input_data as input_data
 import kws_streaming.data.MLSW_data as MLSW_data
 from kws_streaming.models import models
 from kws_streaming.models import utils
+
+from tensorflow_privacy.privacy.optimizers import dp_optimizer
+from tensorflow_privacy.privacy.analysis import compute_dp_sgd_privacy_lib
 
 import math
 
@@ -103,9 +107,7 @@ def train(flags):
   with open(os.path.join(flags.train_dir, 'flags.txt'), 'wt') as f:
     pprint.pprint(flags, stream=f)
 
-  loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True, label_smoothing=flags.label_smoothing)
-  metrics = ['accuracy']
-
+  reduction=tf_v2.keras.losses.Reduction.AUTO
   if flags.optimizer == 'adam':
     optimizer = tf.keras.optimizers.Adam(epsilon=flags.optimizer_epsilon)
   elif flags.optimizer == 'momentum':
@@ -121,8 +123,17 @@ def train(flags):
     # Exclude some layers for weight decay
     exclude = ["pos_emb", "class_emb", "layer_normalization", "bias"]
     optimizer = AdamWeightDecay(learning_rate=0.05, weight_decay_rate=flags.l2_weight_decay, exclude_from_weight_decay=exclude)
+  elif flags.optimizer == 'dpsgd':
+    reduction = tf_v2.keras.losses.Reduction.NONE
+    optimizer = dp_optimizer.DPGradientDescentGaussianOptimizer(
+          l2_norm_clip=flags.dpsgd_norm_clip,
+          noise_multiplier=flags.dpsgd_noise_multiplier,
+          num_microbatches=None,
+          learning_rate=float(flags.learning_rate))
   else:
     raise ValueError('Unsupported optimizer:%s' % flags.optimizer)
+  loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True, label_smoothing=flags.label_smoothing, reduction=reduction)
+  metrics = ['accuracy']
 
   loss_weights = [ 0.5, 0.5, 0.0 ] if teacher else [ 1. ] # equally weight losses form label and teacher, ignore ensemble output
   model.compile(optimizer=optimizer, loss=loss, loss_weights=loss_weights, metrics=metrics)
@@ -169,6 +180,7 @@ def train(flags):
     warmup_steps = int((num_train / flags.batch_size) * flags.warmup_epochs)
     first_decay_steps=training_steps_max
 
+  num_train_samples = len(audio_processor.data_index['training'])
   # Training loop.
   for training_step in range(start_step, training_steps_max + 1):
     if training_step > 0:
@@ -196,7 +208,10 @@ def train(flags):
       else:
         raise ValueError('Wrong lr_schedule: %s' % flags.lr_schedule)
 
-      tf.keras.backend.set_value(model.optimizer.learning_rate, learning_rate_value)
+      if flags.optimizer != 'dpsgd':
+        tf.keras.backend.set_value(model.optimizer.learning_rate, learning_rate_value)
+      else:
+        learning_rate_value = float(flags.learning_rate)
 
       one_hot_labels = tf.keras.utils.to_categorical(train_ground_truth, num_classes=flags.label_count)
 
@@ -219,16 +234,29 @@ def train(flags):
         ])
       else:
         loss_label, acc_label = result
+        loss_label = np.mean(loss_label)
         logging.info(
             'Step #%d: rate %f, accuracy %.2f%%, cross entropy %f',
-            *(training_step, learning_rate_value, acc_label * 100, loss_label))
+            *(training_step, learning_rate_value, acc_label * 100, loss_label)) 
+
         summary = tf.Summary(value=[
             tf.Summary.Value(tag='accuracy', simple_value=acc_label),
         ])
 
       train_writer.add_summary(summary, training_step)
-
     is_last_step = (training_step == training_steps_max)
+    if flags.optimizer=='dpsgd' and \
+      ((training_step * flags.batch_size) % num_train_samples < flags.batch_size or is_last_step):
+      epoch = (training_step * flags.batch_size) // num_train_samples
+      if is_last_step: epoch += 1
+      if epoch != 0:
+        eps, _ = compute_dp_sgd_privacy_lib.compute_dp_sgd_privacy(
+              num_train_samples, flags.batch_size, flags.dpsgd_noise_multiplier, epoch, flags.dpsgd_delta)
+        logging.info('Epoch %d: For delta = %.2e, eps = %.2f' % (epoch, flags.dpsgd_delta, eps))
+        summary = tf.Summary(value=[
+          tf.Summary.Value(tag='epsilon', simple_value=eps),
+        ])
+        train_writer.add_summary(summary, training_step)
     if (training_step % flags.eval_step_interval) == 0 or is_last_step:
       set_size = audio_processor.set_size('validation')
       set_size = int(set_size / flags.batch_size) * flags.batch_size

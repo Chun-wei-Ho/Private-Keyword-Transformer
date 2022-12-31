@@ -2,11 +2,11 @@
 
 set -euo pipefail
 
-LANG=en
+lang=en
 . parse_options.sh
 
-DATA_PATH=/home/chunwei/dataset/MLSW/$LANG
-MODELS_PATH=exp/$LANG
+DATA_PATH=/home/chunwei/dataset/MLSW/$lang
+MODELS_PATH=exp/$lang
 CMD_TRAIN="python -m kws_streaming.train.model_train_eval"
 WANTED_WORD=`cut -d ' ' -f 1 $DATA_PATH/filtered/word_counts.txt | paste -sd,`
 
@@ -20,7 +20,7 @@ $CMD_TRAIN \
 --train_dir $MODELS_PATH \
 --mel_upper_edge_hertz 7600 \
 --optimizer 'adamw' \
---lang $LANG \
+--lang $lang \
 --lr_schedule 'cosine' \
 --how_many_training_steps '1' \
 --eval_step_interval 72 \
