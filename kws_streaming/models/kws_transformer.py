@@ -92,6 +92,14 @@ def model_parameters(parser_nn):
       type=int,
       default=False,
       help='If True, use approximate GELU activation (useful for TFLite conversion)')
+  parser_nn.add_argument(
+      '--fix_transformer', action='store_true',
+      help='If True, fixed the pre-trained transformer weights except for adapters',)
+  parser_nn.add_argument(
+      '--adapter_dim',
+      type=int,
+      default=-1,
+      help='If set, use residual adapter')
 
 
 def extract_patches(images, patch_size_t, patch_size_f):
@@ -144,6 +152,8 @@ def model(flags):
         prenorm=flags.prenorm,
         distill_token=distill_token,
         approximate_gelu=flags.approximate_gelu,
+        adapter_dim=flags.adapter_dim,
+        fix_transformer=flags.fix_transformer,
         )
 
      patch_sig = extract_patches(net, patch_size_t, patch_size_f)
@@ -160,6 +170,8 @@ def model(flags):
         prenorm=flags.prenorm,
         distill_token=distill_token,
         approximate_gelu=flags.approximate_gelu,
+        adapter_dim=flags.adapter_dim,
+        fix_transformer=flags.fix_transformer,
         )
 
     time_sig = time_transformer(net, training=flags.training)
@@ -174,7 +186,9 @@ def model(flags):
         num_patches=num_freqs,
         prenorm=flags.prenorm,
         distill_token=distill_token,
-        approximate_gelu=flags.approximate_gelu
+        approximate_gelu=flags.approximate_gelu,
+        adapter_dim=flags.adapter_dim,
+        fix_transformer=flags.fix_transformer,
         )
 
     net = Permute((2, 1))(net)

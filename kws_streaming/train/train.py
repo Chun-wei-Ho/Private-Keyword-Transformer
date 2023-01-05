@@ -248,7 +248,7 @@ def train(flags):
     if flags.optimizer=='dpsgd' and \
       ((training_step * flags.batch_size) % num_train_samples < flags.batch_size or is_last_step):
       epoch = (training_step * flags.batch_size) // num_train_samples
-      if is_last_step: epoch += 1
+      if is_last_step: epoch += int((training_step * flags.batch_size) % num_train_samples != 0)
       if epoch != 0:
         eps, _ = compute_dp_sgd_privacy_lib.compute_dp_sgd_privacy(
               num_train_samples, flags.batch_size, flags.dpsgd_noise_multiplier, epoch, flags.dpsgd_delta)

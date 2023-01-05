@@ -133,6 +133,8 @@ class KWSTransformer(tf.keras.Model):
         prenorm=False,
         distill_token=False,
         approximate_gelu=False,
+        adapter_dim=-1,
+        fix_transformer=False,
     ):
         super(KWSTransformer, self).__init__()
         self.d_model = d_model
@@ -149,6 +151,18 @@ class KWSTransformer(tf.keras.Model):
             TransformerBlock(d_model, num_heads, mlp_dim, dropout, prenorm, approximate_gelu)
             for _ in range(num_layers)
         ]
+
+        if fix_transformer:
+            for layer in self.layers:
+                layer.trainable = False
+        if adapter_dim > 0:
+            self.adapters = []
+            for _ in range(num_layers):
+                adapters = tf.keras.Sequential()
+                adapters.add(Dense(adapter_dim, kernel_initializer=TruncatedNormal(mean=0., stddev=TRUNC_STD), bias_initializer=Zeros()))
+                adapters.add(tf.keras.layers.LeakyReLU())
+                adapters.add(Dense(d_model, kernel_initializer=TruncatedNormal(mean=0., stddev=TRUNC_STD), bias_initializer=Zeros()))
+                self.adapters.append(adapters)
 
 
     def extract_patches(self, images):
@@ -182,7 +196,9 @@ class KWSTransformer(tf.keras.Model):
         x = tf.concat(tokens, axis=1)
         x = x + self.pos_emb
 
-        for layer in self.enc_layers:
+        for i, layer in enumerate(self.enc_layers):
+            if hasattr(self, 'adapters'):
+                x += self.adapters[i](x)
             x, _ = layer(x, training)
 
         # First (class token) is used for classification, second for distillation (if enabled)
