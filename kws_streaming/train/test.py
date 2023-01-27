@@ -21,11 +21,12 @@ import os
 from absl import logging
 import numpy as np
 import tensorflow.compat.v1 as tf
-import kws_streaming.data.input_data as input_data
 from kws_streaming.layers import modes
 from kws_streaming.models import models
 from kws_streaming.models import utils
+import kws_streaming.data.input_data as input_data
 import kws_streaming.data.MLSW_data as MLSW_data
+import kws_streaming.data.PATE_data as PATE_data
 
 def run_stream_inference(flags, model_stream, inp_audio):
   """Runs streaming inference.

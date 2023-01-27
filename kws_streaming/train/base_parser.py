@@ -35,9 +35,13 @@ def base_parser():
   parser.add_argument('--dataset_class',
     type=str,
     default='input_data.AudioProcessor',
-    choices=['input_data.AudioProcessor', 'MLSW_data.MLSWProcessor'],
+    choices=['input_data.AudioProcessor', 'MLSW_data.MLSWProcessor', 'PATE_data.MLSW_PATE_student'],
     help='The type of dataset being used')
   parser.add_argument('--lang', type=str, default='en')
+  parser.add_argument('--nb_teachers', type=int, default=1, help='number of teachers for PATE')
+  parser.add_argument('--teacher_id', type=int, default=0, help='id of teacher for PATE')
+  parser.add_argument('--pate_teacher_folder', type=str, default='')
+  parser.add_argument('--lap_scale', type=float, default=0, help='scale of laplacian noise in PATE')
   parser.add_argument(
       '--data_url',
       type=str,

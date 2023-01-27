@@ -8,7 +8,7 @@ set -euo pipefail
 
 lang=en
 adapter_dim=192
-clip_norm=5
+clip_norm=20
 eps=8.0
 delta=1e-5
 nepochs=20

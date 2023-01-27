@@ -49,6 +49,8 @@ from .input_data import MAX_NUM_WAVS_PER_CLASS, SILENCE_LABEL, SILENCE_INDEX, \
 class MLSWProcessor(AudioProcessor):
   def __init__(self, flags):
     self.lang = flags.lang
+    self.nb_teachers = flags.nb_teachers
+    self.teacher_id = flags.teacher_id
     super().__init__(flags)
   def prepare_data_index(self, silence_percentage, unknown_percentage,
                          wanted_words, validation_percentage,
@@ -97,6 +99,8 @@ class MLSWProcessor(AudioProcessor):
     for set_index, meta in metas.items():
       df = pd.read_csv(meta)
       for idx, row in tqdm.tqdm(df.iterrows(), desc=f"Reading {meta}"):
+        if set_index == 'training' and idx % self.nb_teachers != self.teacher_id:
+          continue
         wav_path = os.path.join(self.data_dir, 'data', 'clips', row['LINK'])
         new_wav_path = match.sub('.wav', wav_path)
         word = row['WORD'].lower()

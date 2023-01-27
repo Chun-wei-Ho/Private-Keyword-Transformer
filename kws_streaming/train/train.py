@@ -34,6 +34,7 @@ import tensorflow.compat.v1 as tf
 import tensorflow_addons as tfa
 import kws_streaming.data.input_data as input_data
 import kws_streaming.data.MLSW_data as MLSW_data
+import kws_streaming.data.PATE_data as PATE_data
 from kws_streaming.models import models
 from kws_streaming.models import utils
 
