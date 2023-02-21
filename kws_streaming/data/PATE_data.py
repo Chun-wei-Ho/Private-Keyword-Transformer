@@ -12,6 +12,7 @@ from six.moves import urllib
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow.compat.v1 as tf
 from kws_streaming.layers import modes
+from kws_streaming.models import models
 
 import tqdm
 from tqdm.contrib.concurrent import process_map
@@ -74,4 +75,26 @@ class MLSW_PATE_student(MLSWProcessor):
           self.data_index['validation'].append(item)
         else:
           self.data_index['testing'].append(item)
-      print(f"Student accuracy with lap_scale {self.lap_scale}: {correct_count / len(test_data)}")
+      # print(f"Student accuracy with lap_scale {self.lap_scale}: {correct_count / len(test_data)}")
+
+class MLSW_PATE_student_ASC(MLSW_PATE_student):
+  def __init__(self, flags):
+    teacher_dirs = [os.path.join(flags.pate_teacher_folder, d) for d in os.listdir(flags.pate_teacher_folder)]
+    self.teacher_models = [os.path.join(d, "best_weights") for d in teacher_dirs if os.path.isdir(d)]
+
+    model = models.MODELS[flags.model_name](flags)
+    model.trainable = False
+    
+    output = model.layers[flags.AWC_layer_index].output
+
+    self.model = model
+    self.latent_model = tf.keras.Model(inputs=model.input, outputs=output)
+    self.model_idx = 0
+
+    super().__init__(flags)
+  def get_data(self, *args, **kwargs):
+    data, _ = super(MLSW_PATE_student_ASC, self).get_data(*args, **kwargs)
+    self.model.load_weights(self.teacher_models[self.model_idx])
+    label = self.latent_model.predict(data)
+    self.model_idx = (self.model_idx + 1) % len(self.teacher_models)
+    return data, label

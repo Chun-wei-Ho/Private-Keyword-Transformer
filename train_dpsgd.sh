@@ -7,7 +7,7 @@ set -euo pipefail
 # source ./venv3/bin/activate
 
 lang=en
-clip_norm=10
+clip_norm=20
 eps=8.0
 delta=1e-5
 nepochs=20

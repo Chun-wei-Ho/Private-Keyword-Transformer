@@ -135,6 +135,9 @@ class KWSTransformer(tf.keras.Model):
         approximate_gelu=False,
         adapter_dim=-1,
         fix_transformer=False,
+        adapter_connection=None,
+        adapter_l1 = 0.,
+        adapter_l2 = 0.
     ):
         super(KWSTransformer, self).__init__()
         self.d_model = d_model
@@ -151,17 +154,22 @@ class KWSTransformer(tf.keras.Model):
             TransformerBlock(d_model, num_heads, mlp_dim, dropout, prenorm, approximate_gelu)
             for _ in range(num_layers)
         ]
+        assert adapter_connection in (None, "neighboring", "unet")
+        self.adapter_connection = adapter_connection
 
         if fix_transformer:
             for layer in self.layers:
                 layer.trainable = False
         if adapter_dim > 0:
             self.adapters = []
+            regularizer = tf.keras.regularizers.L1L2(l1=adapter_l1, l2=adapter_l2)
             for _ in range(num_layers):
                 adapters = tf.keras.Sequential()
-                adapters.add(Dense(adapter_dim, kernel_initializer=TruncatedNormal(mean=0., stddev=TRUNC_STD), bias_initializer=Zeros()))
+                adapters.add(Dense(adapter_dim, kernel_initializer=TruncatedNormal(mean=0., stddev=TRUNC_STD),
+                            bias_initializer=Zeros(), kernel_regularizer=regularizer, bias_regularizer=regularizer))
                 adapters.add(tf.keras.layers.LeakyReLU())
-                adapters.add(Dense(d_model, kernel_initializer=TruncatedNormal(mean=0., stddev=TRUNC_STD), bias_initializer=Zeros()))
+                adapters.add(Dense(d_model, kernel_initializer=TruncatedNormal(mean=0., stddev=TRUNC_STD),
+                             bias_initializer=Zeros(), kernel_regularizer=regularizer, bias_regularizer=regularizer))
                 self.adapters.append(adapters)
 
 
@@ -196,9 +204,16 @@ class KWSTransformer(tf.keras.Model):
         x = tf.concat(tokens, axis=1)
         x = x + self.pos_emb
 
+        adapter_outputs = []
         for i, layer in enumerate(self.enc_layers):
             if hasattr(self, 'adapters'):
-                x += self.adapters[i](x)
+                if self.adapter_connection == 'neighboring' and i != 0:
+                    adapter_outputs.append(self.adapters[i](x + adapter_outputs[-1]))
+                if self.adapter_connection == 'unet' and i >= len(self.adapters) // 2:
+                    adapter_outputs.append(self.adapters[i](x + adapter_outputs[len(self.adapters)-i-1]))
+                else:
+                    adapter_outputs.append(self.adapters[i](x))
+                x += adapter_outputs[-1]
             x, _ = layer(x, training)
 
         # First (class token) is used for classification, second for distillation (if enabled)

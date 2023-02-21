@@ -29,7 +29,7 @@ if __name__ == "__main__":
     input_mat = input_mat[:, args.chunk_id::args.n_chunks, :]
     teacher_preds = input_mat.argmax(axis=-1)
 
-    n_iter = 25
+    n_iter = 35
     noise_eps_range = [1e-10, 10]
     pbar = tqdm.tqdm(range(n_iter))
     for i in pbar:
@@ -39,7 +39,7 @@ if __name__ == "__main__":
         data_dependent_privacy, data_independent_privacy = \
             pate.perform_analysis(teacher_preds, \
                                 indices, noise_eps, \
-                                delta=args.delta, moments=args.moment, beta=args.beta)
+                                delta=args.delta, moments=args.moment, beta=args.beta, nclass=input_mat.shape[-1])
         sys.stdout = sys.__stdout__
         if data_dependent_privacy < args.target_eps:
             noise_eps_range[1] = noise_eps

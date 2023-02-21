@@ -38,6 +38,8 @@ import kws_streaming.data.PATE_data as PATE_data
 from kws_streaming.models import models
 from kws_streaming.models import utils
 
+from .kt_loss import kt_loss
+
 from tensorflow_privacy.privacy.optimizers import dp_optimizer
 from tensorflow_privacy.privacy.analysis import compute_dp_sgd_privacy_lib
 
@@ -63,6 +65,10 @@ def train(flags):
 
   DatasetClass = eval(flags.dataset_class)
   audio_processor = DatasetClass(flags)
+  source_processor = None
+  if flags.asc_type != '':
+    DatasetClass = eval(flags.source_dataset_class)
+    source_processor = DatasetClass(flags)
 
   time_shift_samples = int((flags.time_shift_ms * flags.sample_rate) / 1000)
 
@@ -98,6 +104,12 @@ def train(flags):
     teacher_flags = None
 
   base_model = model
+  latent_model = None
+  if source_processor is not None:
+    latent_output = model.layers[flags.AWC_layer_index].output
+    latent_input = tf.keras.layers.Input(shape=latent_output.shape)
+    latent_model = \
+      tf.keras.Model(inputs=model.input, outputs=[model.output, latent_output])
 
   logging.info(model.summary())
 
@@ -137,7 +149,12 @@ def train(flags):
   metrics = ['accuracy']
 
   loss_weights = [ 0.5, 0.5, 0.0 ] if teacher else [ 1. ] # equally weight losses form label and teacher, ignore ensemble output
+  
   model.compile(optimizer=optimizer, loss=loss, loss_weights=loss_weights, metrics=metrics)
+  if latent_model is not None:
+    loss2 = kt_loss[flags.asc_type]
+    latent_model.compile(optimizer=optimizer, loss=[loss, loss2], \
+            loss_weights=[*loss_weights, 0.5], metrics=metrics)
 
   train_writer = tf.summary.FileWriter(flags.summaries_dir + '/train',
                                        sess.graph)
@@ -193,6 +210,11 @@ def train(flags):
           flags.batch_size, offset, flags, flags.background_frequency,
           flags.background_volume, time_shift_samples, mode,
           flags.resample, flags.volume_resample, sess)
+      if source_processor is not None:
+        source_fingerprints, source_latent = source_processor.get_data(
+            flags.batch_size, offset, flags, flags.background_frequency,
+            flags.background_volume, time_shift_samples, mode,
+            flags.resample, flags.volume_resample, sess)
 
       if flags.lr_schedule == 'exp':
         learning_rate_value = lr_init * np.exp(-exp_rate * training_step)
@@ -220,7 +242,10 @@ def train(flags):
         teacher_labels = teacher.predict_on_batch(train_fingerprints)
         one_hot_labels = [ one_hot_labels, teacher_labels, one_hot_labels ] # third is for the ensemble output, gradient is unused
 
-      result = model.train_on_batch(train_fingerprints, one_hot_labels)
+      if latent_model is not None:
+        result = latent_model.train_on_batch(train_fingerprints, [one_hot_labels, source_latent])
+      else:
+        result = model.train_on_batch(train_fingerprints, one_hot_labels)
 
       if teacher:
         loss_total, loss_label, loss_teacher, loss_average, acc_label, acc_teacher, acc_ensemble = result
@@ -234,11 +259,18 @@ def train(flags):
             tf.Summary.Value(tag='ensemble_accuracy', simple_value=acc_ensemble),
         ])
       else:
-        loss_label, acc_label = result
-        loss_label = np.mean(loss_label)
-        logging.info(
-            'Step #%d: rate %f, accuracy %.2f%%, cross entropy %f',
-            *(training_step, learning_rate_value, acc_label * 100, loss_label)) 
+        if latent_model is not None:
+          loss_label, _, loss_average, acc_label, _ = result
+          loss_label = np.mean(loss_label)
+          logging.info(
+              'Step #%d: rate %f, accuracy %.2f%%, cross entropy %f',
+              *(training_step, learning_rate_value, acc_label * 100, loss_label))
+        else:
+          loss_label, acc_label = result
+          loss_label = np.mean(loss_label)
+          logging.info(
+              'Step #%d: rate %f, accuracy %.2f%%, cross entropy %f',
+              *(training_step, learning_rate_value, acc_label * 100, loss_label)) 
 
         summary = tf.Summary(value=[
             tf.Summary.Value(tag='accuracy', simple_value=acc_label),
