@@ -14,18 +14,19 @@ eps=7.96
 delta=1e-5
 stage=0
 teacher_folder=
-adapter_dim=192
+asc_type=nst
 . parse_options.sh
 
 KWS_PATH=$PWD
 if [ -z $teacher_folder ]; then
-    TEACHER_FOLDER=exp/${lang}_pate_teachers_${nb_teachers}_adapter_${adapter_dim}
+    TEACHER_FOLDER=exp/${lang}_pate_teachers_${nb_teachers}
 else
     TEACHER_FOLDER=$teacher_folder
 fi
 
-EXP=exp/${lang}_pate_students_${nb_teachers}_${eps}_adapter_${adapter_dim}
+EXP=exp/${lang}_pate_students_${nb_teachers}_${eps}_ASC_teacher_model_${asc_type}
 DATA_PATH=/home/chunwei/dataset/MLSW/$lang
+SOURCE_PATH=/home/chunwei/dataset/google-speech-command_v2
 MODELS_PATH=$KWS_PATH/models_data_v2_12_labels/kwt3
 CMD_TRAIN="python -m kws_streaming.train.model_train_eval"
 
@@ -42,11 +43,7 @@ TEACHER_MODEL_ARGS="kws_transformer
 --d_model 192
 --mlp_dim 768
 --dropout1 0.
---attention_type time
---adapter_dim $adapter_dim
---fix_transformer
-"
-# --reprogram trainable_noise
+--attention_type time"
 
 STUDENT_MODEL_ARGS="kws_transformer 
 --num_layers 12
@@ -54,11 +51,7 @@ STUDENT_MODEL_ARGS="kws_transformer
 --d_model 192
 --mlp_dim 768
 --dropout1 0.
---attention_type time
---adapter_dim $adapter_dim
---fix_transformer
-"
-# --reprogram trainable_noise
+--attention_type time"
 
 TRAIN_ARGS="--wanted_words $WANTED_WORD
     --start_checkpoint $EXP/init.hdf5
@@ -105,11 +98,13 @@ fi
 
 if [ $stage -le 1 ]; then
     echo "Stage 2: Calculate the required lap_scale"
-    python pate/analysis_syft.py --counts_file=$TEACHER_FOLDER/teacher_preds.npy \
-        --delta=$delta \
-        --n_chunks 2 \
-        --target_eps 8.0 \
-        --output_dir $EXP
+    if [ ! -f $EXP/lap_scale ]; then
+        python pate/analysis_syft.py --counts_file=$TEACHER_FOLDER/teacher_preds.npy \
+            --delta=$delta \
+            --n_chunks 2 \
+            --target_eps 8.0 \
+            --output_dir $EXP
+    fi
 fi
 
 if [ $stage -le 2 ]; then
@@ -118,8 +113,11 @@ if [ $stage -le 2 ]; then
     python MLSW/convert.py $START_CHECKPOINT $EXP/init.hdf5 $STUDENT_MODEL_ARGS
     $CMD_TRAIN $TRAIN_ARGS \
         --dataset_class PATE_data.MLSW_PATE_student \
+        --source_path $SOURCE_PATH \
         --lap_scale $lap_scale \
+        --source_dataset_class PATE_data.MLSW_PATE_student_ASC\
         --pate_teacher_folder $TEACHER_FOLDER \
+        --asc_type $asc_type \
         $STUDENT_MODEL_ARGS 2>&1 | tee $EXP/train.log
 fi
 

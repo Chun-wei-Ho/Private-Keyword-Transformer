@@ -100,7 +100,7 @@ def model_parameters(parser_nn):
       choices=['trainable_noise', 'conv'],
     )
   parser_nn.add_argument(
-    '--adapter_connection', type=str, default=None, choices=["neighboring", "unet"])
+    '--adapter_connection', type=str, default=None, choices=["neighboring", "unet", "densenet"])
   parser_nn.add_argument(
       '--adapter_dim',
       type=int,

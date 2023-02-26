@@ -154,7 +154,7 @@ class KWSTransformer(tf.keras.Model):
             TransformerBlock(d_model, num_heads, mlp_dim, dropout, prenorm, approximate_gelu)
             for _ in range(num_layers)
         ]
-        assert adapter_connection in (None, "neighboring", "unet")
+        assert adapter_connection in (None, "neighboring", "unet", "densenet")
         self.adapter_connection = adapter_connection
 
         if fix_transformer:
@@ -209,8 +209,10 @@ class KWSTransformer(tf.keras.Model):
             if hasattr(self, 'adapters'):
                 if self.adapter_connection == 'neighboring' and i != 0:
                     adapter_outputs.append(self.adapters[i](x + adapter_outputs[-1]))
-                if self.adapter_connection == 'unet' and i >= len(self.adapters) // 2:
+                elif self.adapter_connection == 'unet' and i >= len(self.adapters) // 2:
                     adapter_outputs.append(self.adapters[i](x + adapter_outputs[len(self.adapters)-i-1]))
+                elif self.adapter_connection == 'densenet' and i != 0:
+                    adapter_outputs.append(self.adapters[i](x + tf.reduce_sum(adapter_outputs, axis=0)))
                 else:
                     adapter_outputs.append(self.adapters[i](x))
                 x += adapter_outputs[-1]
