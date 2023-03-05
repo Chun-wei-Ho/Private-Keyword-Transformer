@@ -136,8 +136,6 @@ class KWSTransformer(tf.keras.Model):
         adapter_dim=-1,
         fix_transformer=False,
         adapter_connection=None,
-        adapter_l1 = 0.,
-        adapter_l2 = 0.
     ):
         super(KWSTransformer, self).__init__()
         self.d_model = d_model
@@ -162,14 +160,13 @@ class KWSTransformer(tf.keras.Model):
                 layer.trainable = False
         if adapter_dim > 0:
             self.adapters = []
-            regularizer = tf.keras.regularizers.L1L2(l1=adapter_l1, l2=adapter_l2)
             for _ in range(num_layers):
                 adapters = tf.keras.Sequential()
                 adapters.add(Dense(adapter_dim, kernel_initializer=TruncatedNormal(mean=0., stddev=TRUNC_STD),
-                            bias_initializer=Zeros(), kernel_regularizer=regularizer, bias_regularizer=regularizer))
+                            bias_initializer=Zeros()))
                 adapters.add(tf.keras.layers.LeakyReLU())
                 adapters.add(Dense(d_model, kernel_initializer=TruncatedNormal(mean=0., stddev=TRUNC_STD),
-                             bias_initializer=Zeros(), kernel_regularizer=regularizer, bias_regularizer=regularizer))
+                             bias_initializer=Zeros()))
                 self.adapters.append(adapters)
 
 

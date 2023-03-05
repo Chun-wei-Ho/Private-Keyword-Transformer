@@ -51,6 +51,7 @@ class MLSWProcessor(AudioProcessor):
     self.lang = flags.lang
     self.nb_teachers = flags.nb_teachers
     self.teacher_id = flags.teacher_id
+    self.half_test = flags.half_test
     super().__init__(flags)
   def prepare_data_index(self, silence_percentage, unknown_percentage,
                          wanted_words, validation_percentage,
@@ -117,6 +118,11 @@ class MLSWProcessor(AudioProcessor):
           raise IOError('Expected to find ' + wanted_word +
                         ' in labels but only found ' +
                         ', '.join(all_words.keys()))
+    if self.half_test:
+      testdata_for_training = self.data_index['testing'][::2]
+      testdata_for_testing = self.data_index['testing'][1::2]
+      self.data_index['testing'] = testdata_for_testing
+      self.data_index['training'] += testdata_for_training
     # Make sure the ordering is random.
     for set_index in ['validation', 'testing', 'training']:
       random.shuffle(self.data_index[set_index])

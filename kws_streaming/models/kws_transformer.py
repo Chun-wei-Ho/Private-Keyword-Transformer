@@ -106,8 +106,6 @@ def model_parameters(parser_nn):
       type=int,
       default=-1,
       help='If set, use residual adapter')
-  parser_nn.add_argument('--adapter_l1', type=float, default=0.0)
-  parser_nn.add_argument('--adapter_l2', type=float, default=0.0)
 
 
 def extract_patches(images, patch_size_t, patch_size_f):
@@ -189,9 +187,7 @@ def model(flags):
         approximate_gelu=flags.approximate_gelu,
         adapter_dim=flags.adapter_dim,
         fix_transformer=flags.fix_transformer,
-        adapter_connection=flags.adapter_connection,
-        adapter_l1=flags.adapter_l1,
-        adapter_l2=flags.adapter_l2
+        adapter_connection=flags.adapter_connection
         )
 
      patch_sig = extract_patches(net, patch_size_t, patch_size_f)
@@ -210,9 +206,7 @@ def model(flags):
         approximate_gelu=flags.approximate_gelu,
         adapter_dim=flags.adapter_dim,
         fix_transformer=flags.fix_transformer,
-        adapter_connection=flags.adapter_connection,
-        adapter_l1=flags.adapter_l1,
-        adapter_l2=flags.adapter_l2
+        adapter_connection=flags.adapter_connection
         )
 
     time_sig = time_transformer(net, training=flags.training)
@@ -230,9 +224,7 @@ def model(flags):
         approximate_gelu=flags.approximate_gelu,
         adapter_dim=flags.adapter_dim,
         fix_transformer=flags.fix_transformer,
-        adapter_connection=flags.adapter_connection,
-        adapter_l1=flags.adapter_l1,
-        adapter_l2=flags.adapter_l2
+        adapter_connection=flags.adapter_connection
         )
 
     net = Permute((2, 1))(net)

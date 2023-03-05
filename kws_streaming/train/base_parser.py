@@ -73,6 +73,7 @@ def base_parser():
       help="""\
       Learning rate schedule: linear, exp.
       """)
+  parser.add_argument('--half_test', action='store_true', help='use half test set for training, another half for testing')
   parser.add_argument(
       '--optimizer',
       type=str,

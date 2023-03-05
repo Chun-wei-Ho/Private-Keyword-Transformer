@@ -18,7 +18,7 @@ KWS_PATH=$PWD
 # DATA_PATH=$KWS_PATH/data2
 DATA_PATH=/home/chunwei/dataset/MLSW/$lang
 MODELS_PATH=$KWS_PATH/models_data_v2_12_labels/kwt3
-EXP=exp/${lang}_dpsgd_${eps}_${clip_norm}
+EXP=exp/${lang}_dpsgd_${eps}_${clip_norm}_half_test
 CMD_TRAIN="python -m kws_streaming.train.model_train_eval"
 
 NUM_TRAIN=`wc -l $DATA_PATH/filtered/${lang}_train.csv | cut -d ' ' -f 1`
@@ -45,6 +45,7 @@ python MLSW/convert.py $START_CHECKPOINT $EXP/init.hdf5 $MODEL_ARGS
 
 $CMD_TRAIN \
 --dpsgd_norm_clip $clip_norm \
+--half_test \
 --dpsgd_delta $delta \
 --dpsgd_noise_multiplier $NOISE_MULTIPLIER \
 --wanted_words $WANTED_WORD \
